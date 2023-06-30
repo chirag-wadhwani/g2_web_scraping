@@ -38,7 +38,7 @@ class WebScraper:
             checkbox_exists = await frame.query_selector('input[type="checkbox"]') is not None
 
             if time.time() - start_time > 60:
-                print(f"Waited 60 seconds for the checkbox element for bot verification. Number of attempts: {count} Exiting...")
+                print(f"Waited 60 seconds for the checkbox element for bot verification. Number of attempts: {count}. Exiting...")
                 return False
 
             count += 1
@@ -48,10 +48,30 @@ class WebScraper:
         if checkbox_exists:
             checkbox = await frame.query_selector('input[type="checkbox"]')
             await checkbox.check()
-            await asyncio.sleep(10)
+            await asyncio.sleep(15)
             return True
         else:
             return False
+        
+    async def scrape_description(self, page_html):
+        """Fetch the website of the company
+
+        Args:
+            page_html: The g2 URL page object
+
+        Returns:
+            str: Returns the description of the company
+            None: Returns None if the description is not found
+        """
+        try:
+            div_description = page_html.find("div", itemprop="description")
+            description = div_description.find("p").text
+            if not description:
+                return None
+            return description
+        except Exception as ex:
+            print(f"Exception occurred while fetching the description. Exception: {ex}")
+            return None
         
     async def scrape_website(self, page_html):
         """Fetch the website of the company
@@ -152,9 +172,9 @@ class WebScraper:
 
         company_details = {}
         async with async_playwright() as playwright:
-            browser = await playwright.chromium.launch(headless=False, slow_mo=100)
-            page = await browser.new_page()
+            browser = await playwright.chromium.launch(headless=False)
             for url in g2_urls:
+                page = await browser.new_page()
                 url_validation = await self.check_g2_url(url)
                 if not url_validation:
                     continue
@@ -173,6 +193,7 @@ class WebScraper:
 
                 review_details = await self.scrape_review_details(page_html)
                 review_details["website"] = await self.scrape_website(page_html)
+                review_details["description"] = await self.scrape_description(page_html)
                 
                 review_details["ratings"] = {}
 
@@ -181,7 +202,10 @@ class WebScraper:
                     
                 review_details["g2_url"] = url
                 company_details[review_details["company_name"]] = review_details
+                
+                await page.close()
 
+            await browser.close()
             return company_details
 
 if __name__ == "__main__":
@@ -192,7 +216,11 @@ if __name__ == "__main__":
     g2_urls = df["urls"].tolist()
 
     web_scraper = WebScraper()
-    company_details = asyncio.run(web_scraper.run_web_scrape(g2_urls))
-    
+    try:
+        company_details = asyncio.run(web_scraper.run_web_scrape(g2_urls))
+    except Exception as ex:
+        print("Exception occurred while scrapping the data. Exiting...")
+        raise ex
+
     with open("company_details.json", "w") as f:
         json.dump(company_details, f)
