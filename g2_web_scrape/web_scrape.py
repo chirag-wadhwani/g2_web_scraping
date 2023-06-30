@@ -22,7 +22,7 @@ class WebScraper:
         return page_html
 
     async def handle_bot_verification(self, page):
-        """By passes the bot verification
+        """Bypasses the bot verification
 
         Args:
             page: The g2 URL page object
@@ -35,13 +35,13 @@ class WebScraper:
         start_time = time.time()
         count = 1
         while checkbox_exists != True:
-            print(f"Attempting to get the checkbox element. Attempt count: {count}")
             checkbox_exists = await frame.query_selector('input[type="checkbox"]') is not None
-            count += 1
+
             if time.time() - start_time > 60:
-                print(f"Waited 60 seconds for the checkbox element for bot verification. Exiting...")
+                print(f"Waited 60 seconds for the checkbox element for bot verification. Number of attempts: {count} Exiting...")
                 return False
-            
+
+            count += 1
             # Check for checkbox element after 2 seconds
             await asyncio.sleep(2)
             
@@ -54,6 +54,15 @@ class WebScraper:
             return False
         
     async def scrape_website(self, page_html):
+        """Fetch the website of the company
+
+        Args:
+            page_html: The g2 URL page object
+
+        Returns:
+            str: Returns website of the company
+            None: Returns None if the website is not found
+        """
         try:
             div_website = page_html.find("div", string="Website")
             next_sibling = div_website.next_sibling
@@ -67,6 +76,16 @@ class WebScraper:
             return None
         
     async def scrape_specific_rating_count(self, page_html, rating):
+        """Fetch the review count of the provided rating from the provided page_html
+
+        Args:
+            page_html: The g2 URL page object
+            rating: Rating of which the count is to be fetched. Eg: 1, 2, 3, 4, 5. These are stars in terms of www.g2.com
+
+        Returns:
+            str: Returns review count of the provided rating
+            None: Returns None if the review count is not found
+        """
         try:
             star_input_element = page_html.find("input", type="radio", value=rating)
             next_sibling = star_input_element.next_sibling
@@ -77,6 +96,14 @@ class WebScraper:
             return None
 
     async def scrape_review_details(self, page_html):
+        """Fetch the details of the company from the provided page_html
+
+        Args:
+            page_html: The g2 URL page object
+
+        Returns:
+            dict: Returns the basic information of the company.
+        """
         review_details = {}
 
         company_name = page_html.find("meta", itemprop="itemReviewed")
@@ -91,6 +118,14 @@ class WebScraper:
         return review_details
     
     async def check_g2_url(self, url):
+        """Validate the provided g2 URL to confirm if it can be handled by this scraping script or not.
+
+        Args:
+            url: Input g2 URL
+
+        Returns:
+            bool: Returns True/False based on the validation of the URL
+        """
         if "g2.com" not in url:
             print(f"This code is just to scrape urls from www.g2.com. Skipping {url} URL")
             return False
@@ -106,6 +141,14 @@ class WebScraper:
         return True
         
     async def run_web_scrape(self, g2_urls):
+        """Run the scraping for the G2 URLs.
+
+        Args:
+            g2_urls: List of G2 URLs
+            
+        Returns:
+            bool: Returns a dictionary having key as company name and value as its detials
+        """
 
         company_details = {}
         async with async_playwright() as playwright:
@@ -138,7 +181,8 @@ class WebScraper:
                     
                 review_details["g2_url"] = url
                 company_details[review_details["company_name"]] = review_details
-            print(company_details)
+
+            return company_details
 
 if __name__ == "__main__":
     current_folder = os.path.dirname(os.path.abspath(__file__))
